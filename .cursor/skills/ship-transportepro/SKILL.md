@@ -22,10 +22,11 @@ Antes de commitar, confirmar que o código existe no disco:
 git status --short
 dir services\core-node\src\modules\*\*.ts
 dir apps\*\src\pages
+node scripts\verify-persistence.cjs
 ```
 
 Se pastas existirem mas arquivos `.ts`/`.tsx` estiverem vazios → **parar** e recriar/salvar antes de continuar.
-Nunca considerar a entrega pronta sem confirmar com `Test-Path`, `dir` e `git status --short`.
+Nunca considerar a entrega pronta sem confirmar com `Test-Path`, `dir`, `git status --short` e `node scripts\verify-persistence.cjs`.
 Nunca commitar deleções inesperadas (`D`) sem confirmação explícita do usuário.
 
 ## 1. Banco de dados
@@ -48,7 +49,9 @@ Regras:
 
 ```powershell
 cd services/core-node; npm run build
+cd apps/client-web; npm run build     # se existir e foi alterado
 cd apps/driver-web; npm run build    # se existir e foi alterado
+cd apps/admin-web; npm run build     # se existir e foi alterado
 ```
 
 ## 3. Commit Git
@@ -99,6 +102,7 @@ gh pr create --title "titulo" --body "## Summary`n- ...`n`n## Test plan`n- [ ] m
 ## Checklist final
 
 - [ ] Arquivos existem no disco (não só pastas vazias)
+- [ ] `node scripts\verify-persistence.cjs` ok
 - [ ] `db-check.js migrate` ok (se houve SQL novo)
 - [ ] Build ok (se aplicável)
 - [ ] Commit feito com paths corretos
