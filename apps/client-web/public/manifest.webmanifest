@@ -1,0 +1,11 @@
+{
+  "name": "Transporte.PRO Passageiro",
+  "short_name": "Transporte.PRO",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08111f",
+  "theme_color": "#08111f",
+  "orientation": "portrait-primary",
+  "lang": "pt-BR",
+  "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
