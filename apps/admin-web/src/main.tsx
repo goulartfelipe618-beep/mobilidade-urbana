@@ -2,240 +2,136 @@ import { StrictMode, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
-  BadgeDollarSign,
+  BellRing,
   Car,
+  ChartLine,
   CheckCircle2,
-  Database,
-  FileWarning,
-  Gauge,
-  Globe2,
+  Cog,
+  FileText,
+  Gift,
+  Headphones,
+  LockKeyhole,
   MapPinned,
   RadioTower,
   Route,
-  ShieldCheck,
   SlidersHorizontal,
-  Star,
+  UserCheck,
   Users,
   WalletCards,
 } from "lucide-react";
 import "./styles.css";
 
-interface HealthResult {
-  service?: string;
-  status?: string;
-  error?: string;
-}
-
-interface CategoryLike {
-  id?: string;
-  code: string;
-  name: string;
-  description?: string | null;
-  active?: boolean;
-}
-
 type Severity = "ok" | "warn" | "critical" | "info";
+interface HealthResult { service?: string; status?: string; error?: string }
+interface CategoryLike { code: string; name: string; description?: string | null; active?: boolean }
+interface KpiData { title: string; value: string; detail: string; tone: Severity }
 
-const modules = [
-  { name: "Usuarios", status: "Operacional", metric: "cadastro/login/me", icon: Users, tone: "ok" as Severity },
-  { name: "Motoristas", status: "Online, ofertas e lifecycle", metric: "/drivers/me", icon: Car, tone: "ok" as Severity },
-  { name: "Corridas", status: "Solicitar, aceitar, chegar, iniciar, concluir", metric: "status versionado", icon: Route, tone: "ok" as Severity },
-  { name: "Pagamentos", status: "Garantia obrigatoria", metric: "sem pagar depois", icon: WalletCards, tone: "warn" as Severity },
-  { name: "Match", status: "PostGIS + ofertas", metric: "raio incremental", icon: MapPinned, tone: "info" as Severity },
-  { name: "Realtime", status: "Outbox planejado", metric: "WebSocket pendente", icon: RadioTower, tone: "warn" as Severity },
+const dashboard: KpiData[] = [
+  { title: "Corridas hoje", value: "697", detail: "tempo real por cidade", tone: "ok" },
+  { title: "Em andamento", value: "41", detail: "tracking ativo", tone: "info" },
+  { title: "Concluidas", value: "612", detail: "87,8% do volume", tone: "ok" },
+  { title: "Canceladas", value: "44", detail: "6,3% geral", tone: "warn" },
+  { title: "Motoristas online", value: "264", detail: "128 em BC", tone: "ok" },
+  { title: "Passageiros ativos", value: "1.842", detail: "ultimas 24h", tone: "info" },
+  { title: "Faturamento dia", value: "R$ 36.050", detail: "take R$ 7.931", tone: "ok" },
+  { title: "Faturamento mes", value: "R$ 842 mil", detail: "meta 71%", tone: "ok" },
+  { title: "Ticket medio", value: "R$ 51,72", detail: "+8,4% semana", tone: "info" },
+  { title: "Taxa aceite", value: "78,6%", detail: "meta 75%", tone: "ok" },
+  { title: "Taxa cancelamento", value: "6,3%", detail: "alerta em 8%", tone: "ok" },
 ];
 
-const operationalCards = [
-  { title: "Request -> Assign", value: "SLA 45s", detail: "Tempo alvo para associar motorista", icon: Gauge, tone: "ok" as Severity },
-  { title: "Oferta", value: "6s", detail: "Timeout por motorista em premium/criticas", icon: RadioTower, tone: "info" as Severity },
-  { title: "Raio", value: "800m -> 10km", detail: "Expansao progressiva por estagio", icon: Globe2, tone: "info" as Severity },
-  { title: "Pagamento", value: "Garantido", detail: "PIX/cartao antes do inicio; dinheiro por reputacao", icon: BadgeDollarSign, tone: "warn" as Severity },
+const cityData = [
+  ["Balneario Camboriu", "342", "R$ 18.420", "128 online"],
+  ["Itajai", "188", "R$ 9.780", "74 online"],
+  ["Camboriu", "96", "R$ 4.210", "38 online"],
+  ["Itapema", "71", "R$ 3.640", "24 online"],
 ];
-
-const checklist = [
-  "Banco relacional como fonte de verdade para entidades criticas",
-  "Redis apenas cache/coordenador efemero, nunca fonte unica",
-  "Outbox transacional para eventos criticos",
-  "Sem pagar depois, sem saldo negativo, sem credito futuro",
-  "Match valida categoria, status online, documento, localizacao fresca e bloqueios",
-  "IA nunca decide fluxo critico sincrono",
-  "Toda regra de pricing, reputacao e score deve ser versionada",
-  "Nunca commitar delecoes inesperadas ou arquivos com secrets",
-];
-
-const riskRules = [
-  { area: "GPS falso", rule: "saltos impossiveis, mock location e baixa confianca reduzem prioridade", severity: "critical" as Severity },
-  { area: "Conta duplicada", rule: "documento, telefone, cartao, device e IP correlacionados", severity: "warn" as Severity },
-  { area: "Cupom", rule: "limite por usuario, device, documento, cartao e geofence", severity: "warn" as Severity },
-  { area: "Corrida suspeita", rule: "origem/destino repetidos, loops entre pares e duracoes anomalas", severity: "critical" as Severity },
-];
+const rideHourly = [52,44,31,22,18,27,48,82,116,134,128,119,142,151,138,122,146,189,214,198,176,132,96,68];
+const revenueDaily = [8400,9100,10200,9800,12100,13600,18420];
+const userGrowth = [1200,1540,1890,2340,2980,3760,4215];
 
 const categoriesFallback: CategoryLike[] = [
-  { code: "MOTO", name: "Moto", description: "1 passageiro, sem bagagem volumosa, bloqueavel em chuva forte" },
-  { code: "ECONOMICO", name: "Economico", description: "Categoria padrao, ate 4 passageiros" },
-  { code: "COMFORT", name: "Comfort", description: "Reputacao 4.75+, conforto superior" },
-  { code: "EXECUTIVO", name: "Executivo", description: "Corporativo e aeroportuario, regras mais rigidas" },
-  { code: "BLACK", name: "Black", description: "Premium, prioridade para clientes de alta reputacao" },
-  { code: "SUV", name: "SUV", description: "Grupo e bagagem volumosa, ate 6 passageiros" },
-  { code: "PET", name: "Pet", description: "Motorista preparado, capa e kit de limpeza" },
-  { code: "PCD", name: "PCD", description: "Atendimento inclusivo e prioridade operacional" },
+  { code: "MOTO", name: "Moto", description: "1 passageiro, sem bagagem volumosa, bloqueio em chuva forte" },
+  { code: "ECONOMICO", name: "Economico", description: "padrao, ate 4 passageiros" },
+  { code: "COMFORT", name: "Comfort", description: "reputacao 4.75+, conforto superior" },
+  { code: "EXECUTIVO", name: "Executivo", description: "corporativo e aeroportuario" },
+  { code: "BLACK", name: "Black", description: "premium e alta reputacao" },
+  { code: "SUV", name: "SUV", description: "grupo e bagagem volumosa" },
+  { code: "PET", name: "Pet", description: "motorista preparado e kit limpeza" },
+  { code: "PCD", name: "PCD", description: "atendimento inclusivo e prioridade" },
+  { code: "AEROPORTO", name: "Aeroporto", description: "fila virtual e taxa aeroportuaria" },
+  { code: "CORPORATIVO", name: "Corporativo", description: "centro de custo e B2B" },
 ];
+
+const drivers = [
+  ["Carlos Mendes","***.342.***-11","CNH AB valid. 2029","Online","1264","4.92","R$ 8.420","Aprovado","Aprovar Â· Rejeitar Â· Suspender Â· Bloquear Â· Reativar"],
+  ["Juliana Rocha","***.812.***-04","CNH B valid. 2028","Em corrida","842","4.81","R$ 6.130","Aprovado","Monitorar Â· Suspender Â· Bloquear"],
+  ["Rafael Lima","***.219.***-88","CNH A valid. 2030","Pendente","0","-","R$ 0","CNH em analise","Aprovar Â· Rejeitar"],
+  ["Marcos Vieira","***.551.***-32","CNH B valid. 2027","Suspenso","438","4.21","R$ 2.940","Seguro vencido","Reativar Â· Bloquear"],
+];
+const vehicles = [
+  ["Toyota","Corolla","2022","Prata","RTA4C21","EXECUTIVO","CRLV + seguro OK","Aprovado","Aprovar Â· Rejeitar Â· Bloquear"],
+  ["Honda","CG 160","2021","Preta","MOT8A77","MOTO","CRLV OK","Aprovado","Aprovar Â· Rejeitar Â· Bloquear"],
+  ["Jeep","Compass","2020","Branco","SUV2B18","SUV","Fotos pendentes","Analise","Aprovar Â· Rejeitar"],
+  ["BMW","320i","2019","Preto","BLK9D40","BLACK","Seguro vencido","Bloqueado","Reativar"],
+];
+const passengers = [
+  ["Ana Souza","***.902.***-70","+55 47 99999-0001","ana@test.local","48","R$ 1.842","4.86","Liberado","Bloquear Â· Historico"],
+  ["Felipe Goulart","***.118.***-55","+55 47 99999-0002","felipe@test.local","73","R$ 2.610","4.92","Liberado","Bloquear Â· Historico"],
+  ["Conta Risco","***.000.***-01","+55 47 99999-0003","risco@test.local","5","R$ 98","3.72","Restrito","Liberar Â· Historico"],
+];
+const rides = [
+  ["TP-10491","Ana Souza","Carlos Mendes","Centro","Aeroporto","R$ 62,40","19,8 km","Em andamento"],
+  ["TP-10490","Felipe","Juliana Rocha","Praia Central","Itajai","R$ 48,10","13,2 km","Concluida"],
+  ["TP-10489","Roberto","-","Camboriu","Centro","R$ 21,80","5,6 km","Aguardando motorista"],
+  ["TP-10488","Marina","Marcos Vieira","Barra Sul","Shopping","R$ 17,50","3,1 km","Cancelada"],
+];
+const pricingRegions = [
+  ["Centro","R$ 5,00","R$ 2,00","R$ 0,40","R$ 8,00","1.35x","1.15x","1.20x"],
+  ["Aeroporto","R$ 7,50","R$ 2,45","R$ 0,55","R$ 14,00","1.50x","1.18x","1.30x"],
+  ["Praias","R$ 6,20","R$ 2,20","R$ 0,46","R$ 10,00","1.42x","1.12x","1.25x"],
+  ["Municipios vizinhos","R$ 5,80","R$ 2,35","R$ 0,44","R$ 11,00","1.28x","1.10x","1.15x"],
+];
+const tickets = [["#9102","Passageiro","Cobranca","2h","Aberto","Chat Â· Reembolso Â· Historico"],["#9101","Motorista","Documento","4h","Em analise","Chat Â· Anexos Â· Bloqueio"],["#9098","Passageiro","Objeto perdido","8h","Resolvido","Historico Â· Notificar"]];
+const auditEvents = [["master@transporte.pro","Aprovou motorista","Rafael Lima","189.4.22.10","19:42"],["financeiro@transporte.pro","Liberou saque","Carlos Mendes","189.4.22.11","18:51"],["ops@transporte.pro","Alterou multiplicador","Centro","189.4.22.12","17:20"]];
+const roles = [["Master","Tudo: configuracoes, financeiro, RBAC, API keys e auditoria"],["Administrador","Operacao, usuarios, motoristas, corridas e relatorios"],["Financeiro","Receitas, saques, taxas, conciliacao e relatorios"],["Operacional","Mapa, corridas, motoristas online e suporte operacional"],["Suporte","Tickets, chat, reembolso limitado e historico"],["Marketing","Cupons, campanhas, notificacoes e segmentacao"]];
 
 function App() {
   const [health, setHealth] = useState<HealthResult>({});
   const [categories, setCategories] = useState<CategoryLike[]>(categoriesFallback);
-  const [lastRefresh, setLastRefresh] = useState<Date>(() => new Date());
-
-  async function refresh() {
-    const [healthResult, categoryResult] = await Promise.allSettled([
-      fetch("/healthz").then((r) => r.json()),
-      fetch("/api/v1/categories").then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
-    ]);
-    setHealth(healthResult.status === "fulfilled" ? healthResult.value : { status: "error", error: String(healthResult.reason) });
-    if (categoryResult.status === "fulfilled" && Array.isArray(categoryResult.value) && categoryResult.value.length) {
-      setCategories(categoryResult.value);
-    }
-    setLastRefresh(new Date());
-  }
-
-  useEffect(() => {
-    void refresh();
-    const id = window.setInterval(() => void refresh(), 15000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const activeCategories = useMemo(() => categories.filter((c) => c.active !== false).length, [categories]);
-
-  return (
-    <div className="admin-shell">
-      <aside className="sidebar">
-        <div className="logo">TP</div>
-        <nav>
-          <a href="#cockpit">Cockpit</a>
-          <a href="#operations">Operacao</a>
-          <a href="#categories">Categorias</a>
-          <a href="#risk">Risco</a>
-          <a href="#payments">Pagamentos</a>
-          <a href="#realtime">Realtime</a>
-          <a href="#persistence">Persistencia</a>
-        </nav>
-      </aside>
-
-      <main>
-        <section id="cockpit" className="hero">
-          <div>
-            <span className="eyebrow">Transporte.PRO Admin</span>
-            <h1>Centro de comando operacional</h1>
-            <p>Painel detalhado para acompanhar usuarios, motoristas, corridas, match, pagamentos, reputacao, risco e integridade do sistema conforme o guia operacional.</p>
-          </div>
-          <div className="hero-status">
-            <StatusPill tone={health.status === "ok" ? "ok" : "critical"}>{health.status === "ok" ? "Backend OK" : "Backend alerta"}</StatusPill>
-            <small>Atualizado {lastRefresh.toLocaleTimeString("pt-BR")}</small>
-          </div>
-        </section>
-
-        <section className="kpi-grid">
-          <Kpi icon={Database} title="Core Node" value={health.service ?? "core-node"} detail={health.status ?? health.error ?? "checando"} tone={health.status === "ok" ? "ok" : "critical"} />
-          <Kpi icon={SlidersHorizontal} title="Categorias ativas" value={String(activeCategories)} detail="catalogo e regras do guia" tone="info" />
-          <Kpi icon={Activity} title="Fluxo critico" value="E2E API OK" detail="passageiro -> motorista -> concluida" tone="ok" />
-          <Kpi icon={FileWarning} title="Pendencias" value="3" detail="WebSocket, payouts, documentos" tone="warn" />
-        </section>
-
-        <section id="operations" className="panel">
-          <PanelTitle icon={Gauge} title="Operacao em tempo real" subtitle="Sinais principais para atendimento e suporte." />
-          <div className="card-grid four">
-            {operationalCards.map((item) => <InfoCard key={item.title} {...item} />)}
-          </div>
-        </section>
-
-        <section className="panel">
-          <PanelTitle icon={Route} title="Pipeline de corrida" subtitle="Estados e controles que o admin precisa enxergar." />
-          <div className="timeline">
-            {[
-              ["REQUESTED", "passageiro escolhe categoria, origem, destino e pagamento"],
-              ["DRIVER_ASSIGNED", "match confirma motorista elegivel e pagamento garantido"],
-              ["DRIVER_ARRIVED", "chegada gera janela de espera e codigos"],
-              ["IN_PROGRESS", "dupla validacao obrigatoria, GPS sozinho nao inicia"],
-              ["COMPLETED", "captura/liquidacao, recibo, reputacao e payout"],
-            ].map(([title, detail], index) => <div key={title}><span>{index + 1}</span><strong>{title}</strong><p>{detail}</p></div>)}
-          </div>
-        </section>
-
-        <section id="categories" className="panel">
-          <PanelTitle icon={Car} title="Categorias e politicas" subtitle="Resumo administrativo das categorias do guia.txt." />
-          <div className="category-table">
-            {categories.map((cat) => <article key={cat.code}>
-              <div><strong>{cat.name}</strong><code>{cat.code}</code></div>
-              <p>{cat.description ?? "Sem descricao"}</p>
-              <small>{cat.active === false ? "Inativa" : "Ativa"}</small>
-            </article>)}
-          </div>
-        </section>
-
-        <section id="risk" className="panel two-col">
-          <div>
-            <PanelTitle icon={ShieldCheck} title="Risco e antifraude" subtitle="Sinais deterministicas antes de IA." />
-            <div className="risk-list">{riskRules.map((r) => <div key={r.area} className={`risk ${r.severity}`}><strong>{r.area}</strong><p>{r.rule}</p></div>)}</div>
-          </div>
-          <div>
-            <PanelTitle icon={Star} title="Reputacao" subtitle="Faixas operacionais bidirecionais." />
-            <div className="score-list">
-              <Score label="Elite" value="4.90 - 5.00" />
-              <Score label="Premium" value="4.80 - 4.89" />
-              <Score label="Confiavel" value="4.60 - 4.79" />
-              <Score label="Observacao" value="4.30 - 4.59" />
-              <Score label="Restrito" value="abaixo de 4.30" />
-            </div>
-          </div>
-        </section>
-
-        <section id="payments" className="panel two-col">
-          <div className="pay-card"><WalletCards /><h3>Pagamento garantido</h3><p>PIX, credito e debito precisam de confirmacao/autorizacao antes do inicio. Dinheiro depende de reputacao minima e limites de risco da praca.</p></div>
-          <div className="pay-card"><BadgeDollarSign /><h3>Repasse motorista</h3><p>Driver payout separa base, distancia, tempo, dinamica, pedagio, aeroporto e incentivos. Promocao ao passageiro nao reduz ganho salvo campanha cofinanciada.</p></div>
-        </section>
-
-        <section id="realtime" className="panel">
-          <PanelTitle icon={RadioTower} title="Realtime e eventos" subtitle="Canais e eventos esperados para WebSocket/Redis/outbox." />
-          <div className="event-grid">
-            {["ride:{ride_id}", "user:{user_id}", "driver:{driver_id}", "region:{region_id}:supply", "ops:{city_id}"].map((c) => <code key={c}>{c}</code>)}
-          </div>
-          <div className="event-grid compact">
-            {["RIDE_REQUESTED", "RIDE_OFFERED", "RIDE_ACCEPTED", "RIDE_DRIVER_ARRIVED", "RIDE_STARTED", "RIDE_COMPLETED", "PAYMENT_CAPTURED", "GPS_INTEGRITY_ALERT"].map((e) => <span key={e}>{e}</span>)}
-          </div>
-        </section>
-
-        <section id="persistence" className="panel">
-          <PanelTitle icon={CheckCircle2} title="Trava contra perda de edicoes" subtitle="Regras que agora devem ser validadas antes de qualquer commit/push." />
-          <div className="checklist">{checklist.map((item) => <label key={item}><input type="checkbox" checked readOnly /> {item}</label>)}</div>
-        </section>
-
-        <section className="panel">
-          <PanelTitle icon={Activity} title="Modulos monitorados" subtitle="Visao resumida dos dominios ativos e pendentes." />
-          <div className="module-grid">{modules.map((m) => <InfoCard key={m.name} icon={m.icon} title={m.name} value={m.status} detail={m.metric} tone={m.tone} />)}</div>
-        </section>
-      </main>
-    </div>
-  );
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+  useEffect(() => { const refresh = async () => { const [h,c] = await Promise.allSettled([fetch("/healthz").then(r=>r.json()), fetch("/api/v1/categories").then(r=>r.ok?r.json():Promise.reject(new Error(String(r.status))))]); setHealth(h.status === "fulfilled" ? h.value : {status:"error", error:String(h.reason)}); if(c.status === "fulfilled" && Array.isArray(c.value) && c.value.length) setCategories(c.value); setLastRefresh(new Date()); }; void refresh(); const id=window.setInterval(refresh,15000); return () => window.clearInterval(id); }, []);
+  const kpis = useMemo(() => [...dashboard, { title:"Backend", value: health.status === "ok" ? "OK" : "Alerta", detail: health.service ?? health.error ?? "checando", tone: health.status === "ok" ? "ok" : "critical" } as KpiData], [health]);
+  return <div className="admin-shell"><Sidebar/><main>
+    <section id="dashboard" className="hero"><div><span className="eyebrow">Administrador Master</span><h1>Controle total da plataforma</h1><p>Operacao completa estilo Uber, 99 e inDrive: frota, passageiros, corridas, mapa, financeiro, pricing, match, cupons, suporte, notificacoes, configuracoes, auditoria e RBAC.</p></div><div className="hero-status"><Status tone={health.status === "ok" ? "ok" : "critical"}>{health.status === "ok" ? "Backend OK" : "Backend alerta"}</Status><small>Atualizado {lastRefresh.toLocaleTimeString("pt-BR")}</small></div></section>
+    <KpiGrid items={kpis}/><Charts/><Drivers/><Vehicles/><Passengers/><Rides/><OperationalMap/><Finance/><Pricing categories={categories}/><MatchEngine/><Coupons/><Support/><Notifications/><PlatformSettings/><Audit/><RBAC/><Persistence/>
+  </main></div>;
 }
-
-function StatusPill({ tone, children }: { tone: Severity; children: React.ReactNode }) {
-  return <span className={`status ${tone}`}>{children}</span>;
-}
-
-function Kpi({ icon: Icon, title, value, detail, tone }: { icon: typeof Activity; title: string; value: string; detail: string; tone: Severity }) {
-  return <article className={`kpi ${tone}`}><Icon size={22} /><span>{title}</span><strong>{value}</strong><p>{detail}</p></article>;
-}
-
-function PanelTitle({ icon: Icon, title, subtitle }: { icon: typeof Activity; title: string; subtitle: string }) {
-  return <header className="panel-title"><Icon size={22} /><div><h2>{title}</h2><p>{subtitle}</p></div></header>;
-}
-
-function InfoCard({ icon: Icon, title, value, detail, tone }: { icon: typeof Activity; title: string; value: string; detail: string; tone: Severity }) {
-  return <article className={`info-card ${tone}`}><Icon size={24} /><strong>{value}</strong><span>{title}</span><p>{detail}</p></article>;
-}
-
-function Score({ label, value }: { label: string; value: string }) {
-  return <div className="score"><span>{label}</span><strong>{value}</strong></div>;
-}
+function Sidebar(){const links=[["dashboard","Dashboard"],["drivers","Motoristas"],["vehicles","Veiculos"],["passengers","Passageiros"],["rides","Corridas"],["map","Mapa"],["finance","Financeiro"],["pricing","Pricing"],["match","Match"],["coupons","Cupons"],["support","Suporte"],["notifications","Notificacoes"],["settings","Configuracoes"],["audit","Auditoria"],["rbac","RBAC"]];return <aside className="sidebar"><div className="logo">TP</div><nav>{links.map(([id,label])=><a href={'#'+id} key={id}>{label}</a>)}</nav></aside>}
+function Status({tone,children}:{tone:Severity;children:React.ReactNode}){return <span className={'status '+tone}>{children}</span>}
+function KpiGrid({items}:{items:KpiData[]}){return <section className="kpi-grid">{items.map(k=><article key={k.title} className={'kpi '+k.tone}><span>{k.title}</span><strong>{k.value}</strong><p>{k.detail}</p></article>)}</section>}
+function Section({id,icon:Icon,title,subtitle,children}:{id:string;icon:typeof Activity;title:string;subtitle:string;children:React.ReactNode}){return <section id={id} className="panel"><header className="panel-title"><Icon size={22}/><div><h2>{title}</h2><p>{subtitle}</p></div></header>{children}</section>}
+function BarChart({values,label}:{values:number[];label:string}){const max=Math.max(...values);return <div><h3>{label}</h3><div className="bars">{values.map((v,i)=><span key={i} style={{height:String(Math.max(8,(v/max)*100))+'%'}} title={String(v)}/>)}</div></div>}
+function Charts(){return <Section id="charts" icon={ChartLine} title="Graficos executivos" subtitle="Corridas por hora, cidade, crescimento de usuarios e receita diaria."><div className="chart-grid"><BarChart values={rideHourly} label="Corridas por hora"/><BarChart values={revenueDaily} label="Receita diaria"/><BarChart values={userGrowth} label="Crescimento de usuarios"/><div><h3>Corridas por cidade</h3><div className="city-list">{cityData.map(c=><div key={c[0]}><strong>{c[0]}</strong><span>{c[1]} corridas Â· {c[2]} Â· {c[3]}</span></div>)}</div></div></div></Section>}
+function Drivers(){return <Section id="drivers" icon={UserCheck} title="Gestao de Motoristas" subtitle="Cadastro, CPF, CNH, documentos, aprovacao, bloqueio, monitoramento, avaliacao e ganhos."><DataTable headers={["Nome","CPF","CNH","Status","Corridas","Avaliacao","Ganhos","Docs","Acoes"]} rows={drivers}/><DocGrid items={["CNH frente e verso","Comprovante de residencia","Foto de perfil","Antecedentes opcionais","Localizacao atual","Status online/offline","Aprovar motorista","Rejeitar motorista","Suspender","Bloquear","Reativar"]}/></Section>}
+function Vehicles(){return <Section id="vehicles" icon={Car} title="Gestao de Veiculos" subtitle="Marca, modelo, ano, cor, placa, categoria, CRLV, seguro, fotos e bloqueio."><DataTable headers={["Marca","Modelo","Ano","Cor","Placa","Categoria","Docs","Status","Acoes"]} rows={vehicles}/><DocGrid items={["CRLV","Seguro","Fotos externas","Fotos internas","Aprovar","Rejeitar","Bloquear"]}/></Section>}
+function Passengers(){return <Section id="passengers" icon={Users} title="Gestao de Passageiros" subtitle="Nome, CPF, telefone, e-mail, corridas, gasto, avaliacao, bloqueio e historico."><DataTable headers={["Nome","CPF","Telefone","E-mail","Corridas","Valor gasto","Avaliacao","Status","Acoes"]} rows={passengers}/></Section>}
+function Rides(){return <Section id="rides" icon={Route} title="Gestao de Corridas" subtitle="Lista, filtros, detalhes, timeline, rota percorrida, tempo total e eventos."><div className="filters"><input placeholder="Data"/><input placeholder="Cidade"/><input placeholder="Categoria"/><input placeholder="Status"/></div><DataTable headers={["ID","Passageiro","Motorista","Origem","Destino","Valor","Distancia","Status"]} rows={rides}/><Timeline/></Section>}
+function OperationalMap(){return <Section id="map" icon={MapPinned} title="Mapa Operacional" subtitle="Motoristas online/ocupados, corridas em andamento e solicitacoes aguardando."><div className="map"><div className="heat h1"/><div className="heat h2"/><div className="pin p1">128 online</div><div className="pin p2">41 em corrida</div><div className="pin p3">12 aguardando</div></div><DocGrid items={["Zoom por regiao","Heatmap de demanda","Rastreamento ao vivo","Motoristas online","Motoristas ocupados","Corridas em andamento","Solicitacoes aguardando motorista"]}/></Section>}
+function Finance(){return <Section id="finance" icon={WalletCards} title="Central Financeira" subtitle="Receitas, comissao, taxas, saques, pendencias e relatorios."><div className="card-grid"><Info title="Total arrecadado" value="R$ 842 mil"/><Info title="Comissao plataforma" value="R$ 176 mil"/><Info title="Taxas" value="R$ 24 mil"/><Info title="Saldo motoristas" value="R$ 91 mil"/><Info title="Saques" value="R$ 38 mil"/><Info title="Pendencias" value="17"/></div><DocGrid items={["Relatorio diario","Relatorio semanal","Relatorio mensal","Relatorio anual","Pagamentos motoristas","Pendencias de captura"]}/></Section>}
+function Pricing({categories}:{categories:CategoryLike[]}){return <Section id="pricing" icon={SlidersHorizontal} title="Pricing Engine" subtitle="Regioes tarifarias, tarifa base, km, minuto, minimo e multiplicadores."><DataTable headers={["Regiao","Base","Km","Minuto","Minimo","Pico","Chuva","Eventos"]} rows={pricingRegions}/><div className="category-table">{categories.map(c=><article key={c.code}><strong>{c.name}</strong><code>{c.code}</code><p>{c.description}</p></article>)}</div></Section>}
+function MatchEngine(){return <Section id="match" icon={RadioTower} title="Match Engine" subtitle="Raio de busca, lote de motoristas, tempo de espera, criterios e monitoramento."><div className="card-grid"><Info title="Raio inicial" value="800m"/><Info title="Raio maximo" value="10km"/><Info title="Max motoristas" value="5"/><Info title="Tempo espera" value="6s"/><Info title="Taxa aceite" value="78,6%"/><Info title="Despacho medio" value="31s"/></div><DocGrid items={["Distancia/ETA","Reputacao","Aceitacao","Cancelamento","Tempo online","Compatibilidade categoria","Bloqueios par-a-par","Locks Redis"]}/></Section>}
+function Coupons(){return <Section id="coupons" icon={Gift} title="Cupons e Promocoes" subtitle="Cupons, cashback, campanhas, limite de uso, validade e regiao."><DataTable headers={["Campanha","Tipo","Limite","Validade","Regiao","Status"]} rows={[["BC10","Cupom","1 uso/usuario","30/06","Balneario","Ativa"],["VOLTA20","Cashback","R$ 20","7 dias","Nacional","Ativa"],["AERO","Campanha","500 usos","15/07","Aeroporto","Pausada"]]}/></Section>}
+function Support(){return <Section id="support" icon={Headphones} title="Atendimento e Suporte" subtitle="Tickets, chat interno, historico completo, reembolso e ferramentas."><DataTable headers={["Ticket","Perfil","Assunto","SLA","Status","Ferramentas"]} rows={tickets}/></Section>}
+function Notifications(){return <Section id="notifications" icon={BellRing} title="Notificacoes" subtitle="Push, SMS, WhatsApp, e-mail e segmentacao."><DocGrid items={["Push","SMS","WhatsApp","E-mail","Segmentar por cidade","Segmentar por categoria","Motoristas","Passageiros"]}/></Section>}
+function PlatformSettings(){return <Section id="settings" icon={Cog} title="Configuracoes da Plataforma" subtitle="Aplicativo, taxa, pagamentos, chaves de API, Mapbox, Supabase, Redis e webhooks."><DocGrid items={["Nome do aplicativo","Logo","Cores","Taxa da plataforma","Metodos de pagamento","Mapbox","Supabase","Redis","Webhooks","Chaves de API"]}/></Section>}
+function Audit(){return <Section id="audit" icon={FileText} title="Auditoria" subtitle="Quem alterou, quando alterou, o que alterou e IP de origem."><DataTable headers={["Quem","Acao","Alvo","IP","Quando"]} rows={auditEvents}/></Section>}
+function RBAC(){return <Section id="rbac" icon={LockKeyhole} title="Controle de Acesso (RBAC)" subtitle="Master, administrador, financeiro, operacional, suporte e marketing."><DataTable headers={["Perfil","Permissoes"]} rows={roles}/></Section>}
+function Persistence(){return <Section id="persistence" icon={CheckCircle2} title="Trava contra excluir edicoes" subtitle="Entrega so depois de persistencia, build, commit e push."><DocGrid items={["node scripts/verify-persistence.cjs","Test-Path nos apps","Build admin/client/driver","Sem delecoes inesperadas","Sem secrets no commit","Push para GitHub oficial"]}/></Section>}
+function Timeline(){return <div className="timeline">{["Solicitada","Oferta enviada","Aceita","Chegou","Iniciada","Concluida"].map((s,i)=><div key={s}><span>{i+1}</span><strong>{s}</strong><p>Evento auditavel no outbox</p></div>)}</div>}
+function Info({title,value}:{title:string;value:string}){return <article className="info"><strong>{value}</strong><span>{title}</span></article>}
+function DocGrid({items}:{items:string[]}){return <div className="doc-grid">{items.map(i=><span key={i}>{i}</span>)}</div>}
+function DataTable({headers,rows}:{headers:string[];rows:string[][]}){return <div className="table"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c}</td>)}</tr>)}</tbody></table></div>}
 
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
+
