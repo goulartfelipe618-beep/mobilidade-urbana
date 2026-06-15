@@ -3,6 +3,8 @@
 !.env.example
 **/node_modules/
 **/dist/
+**/.vite/
+**/*.tsbuildinfo
 **/.DS_Store
 **/*.log
 **/*.exe

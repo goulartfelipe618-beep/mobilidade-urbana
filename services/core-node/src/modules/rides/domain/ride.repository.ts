@@ -11,6 +11,7 @@ export interface RideRepository {
   getPickupCoords(rideId: string): Promise<PickupCoords | null>;
   assignDriver(rideId: string, driverId: string): Promise<Ride>;
   markArrived(rideId: string): Promise<Ride>;
+  markInProgress(rideId: string): Promise<Ride>;
   complete(rideId: string, finalValueCentavos: number): Promise<Ride>;
   cancel(rideId: string): Promise<Ride>;
 }

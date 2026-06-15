@@ -10,6 +10,7 @@ import { PricingController } from "../../modules/pricing/presentation/pricing.co
 import { ReviewsController } from "../../modules/reviews/presentation/reviews.controller";
 import { ReputationController } from "../../modules/reputation/presentation/reputation.controller";
 import { RideStartController } from "../../modules/ride-start/presentation/ride-start.controller";
+import { DriversController } from "../../modules/drivers/presentation/drivers.controller";
 import { RidesController } from "../../modules/rides/presentation/rides.controller";
 import { UsersController } from "../../modules/users/presentation/users.controller";
 import { VehiclesController } from "../../modules/vehicles/presentation/vehicles.controller";
@@ -43,6 +44,7 @@ export function createHttpServer(
   usersController?: UsersController,
   geocodingController?: GeocodingController,
   weatherController?: WeatherController,
+  driversController?: DriversController,
 ) {
   return createServer((req: IncomingMessage, res: ServerResponse) => {
     if (
@@ -183,6 +185,30 @@ export function createHttpServer(
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : "unknown error";
           const status = message === "ride not found" || message === "category not found" ? 404 : message.startsWith("invalid") || message.includes("must be") || message.includes("is required") ? 400 : 500;
+          writeJson(res, status, { message });
+        });
+      return;
+    }
+
+
+    if (driversController && (req.url ?? "").startsWith("/api/v1/drivers/")) {
+      void driversController
+        .handle(req, res)
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : "unknown error";
+          const status =
+            message === "unauthorized" || message === "authorization header required" || message === "driver access only"
+              ? 401
+              : message === "offer not found or expired" || message === "ride not found"
+                ? 404
+                : message.includes("not eligible") ||
+                    message.includes("must be") ||
+                    message.includes("cannot go offline") ||
+                    message.includes("invalid status")
+                  ? 409
+                  : message.includes("is required") || message.includes("invalid")
+                    ? 400
+                    : 500;
           writeJson(res, status, { message });
         });
       return;

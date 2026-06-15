@@ -62,6 +62,17 @@ export class InMemoryRideRepository implements RideRepository {
     return updated;
   }
 
+  public async markInProgress(rideId: string): Promise<Ride> {
+    const existing = this.items.get(rideId);
+    if (!existing || existing.status !== "MOTORISTA_CHEGOU") {
+      throw new Error("ride not found or invalid status");
+    }
+
+    const updated: Ride = { ...existing, status: "EM_ANDAMENTO" };
+    this.items.set(rideId, updated);
+    return updated;
+  }
+
   public async complete(rideId: string, finalValueCentavos: number): Promise<Ride> {
     const existing = this.items.get(rideId);
     if (!existing || existing.status !== "EM_ANDAMENTO") {

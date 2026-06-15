@@ -150,6 +150,28 @@ export class PostgresRideRepository implements RideRepository {
     return mapRow(result.rows[0]);
   }
 
+  public async markInProgress(rideId: string): Promise<Ride> {
+    const result = await this.pool.query<RideRow>(
+      `
+      update viagens
+      set status = 'EM_ANDAMENTO', iniciada_em = coalesce(iniciada_em, now()), atualizado_em = now(), ride_version = ride_version + 1
+      where id = $1 and status = 'MOTORISTA_CHEGOU'
+      returning
+        id, passageiro_id, motorista_id, status, category_code,
+        origem_endereco, destino_endereco,
+        distancia_estimada_m, valor_estimado_centavos, valor_final_centavos,
+        cancelada_em, criado_em
+      `,
+      [rideId],
+    );
+
+    if (!result.rows.length) {
+      throw new Error("ride not found or invalid status");
+    }
+
+    return mapRow(result.rows[0]);
+  }
+
   public async complete(rideId: string, finalValueCentavos: number): Promise<Ride> {
     const result = await this.pool.query<RideRow>(
       `

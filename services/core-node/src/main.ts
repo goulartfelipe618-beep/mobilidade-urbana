@@ -45,6 +45,9 @@ import { PostgresRideRepository } from "./modules/rides/infrastructure/postgres-
 import { RidesController } from "./modules/rides/presentation/rides.controller";
 import { UserService } from "./modules/users/application/user.service";
 import { PostgresUserRepository } from "./modules/users/infrastructure/postgres-user.repository";
+import { DriverService } from "./modules/drivers/application/driver.service";
+import { PostgresDriverRepository } from "./modules/drivers/infrastructure/postgres-driver.repository";
+import { DriversController } from "./modules/drivers/presentation/drivers.controller";
 import { UsersController } from "./modules/users/presentation/users.controller";
 import { VehicleService } from "./modules/vehicles/application/vehicle.service";
 import { InMemoryVehicleRepository } from "./modules/vehicles/infrastructure/in-memory-vehicle.repository";
@@ -100,9 +103,14 @@ const paymentsController = env.pgDsn && paymentService
 const rideStartController = env.pgDsn
   ? new RideStartController(new RideStartService(new PostgresRideStartRepository(env.pgDsn), env.rideStartSecret))
   : undefined;
-const usersController = env.pgDsn
-  ? new UsersController(new UserService(new PostgresUserRepository(env.pgDsn)))
-  : undefined;
+const userService = env.pgDsn ? new UserService(new PostgresUserRepository(env.pgDsn)) : undefined;
+const usersController = userService ? new UsersController(userService) : undefined;
+const driversController =
+  env.pgDsn && userService && rideLifecycleService
+    ? new DriversController(
+        new DriverService(new PostgresDriverRepository(env.pgDsn), userService, rideLifecycleService),
+      )
+    : undefined;
 const geocodingController = env.pgDsn
   ? new GeocodingController(new GeocodingService(new PostgresGeocodingRepository(env.pgDsn), env.mapboxToken))
   : undefined;
@@ -124,6 +132,7 @@ const server = createHttpServer(
   usersController,
   geocodingController,
   weatherController,
+  driversController,
 );
 
 server.listen(env.httpPort, () => {

@@ -1,0 +1,17 @@
+{
+  "name": "Transporte.PRO Motorista",
+  "short_name": "TP Motorista",
+  "description": "Painel do motorista Transporte.PRO",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111c",
+  "theme_color": "#07111c",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -54,6 +54,28 @@ export class RideLifecycleService {
     return updated;
   }
 
+  public async start(rideId: string, driverId: string): Promise<Ride> {
+    const ride = await this.requireRide(rideId);
+    if (ride.driverId !== driverId) {
+      throw new Error("driver is not assigned to ride");
+    }
+
+    if (ride.status !== "MOTORISTA_CHEGOU") {
+      throw new Error("invalid status for start");
+    }
+
+    const updated = await this.rideRepository.markInProgress(rideId);
+    await this.outboxService.publish({
+      eventType: "RIDE_STARTED",
+      aggregateType: "ride",
+      aggregateId: rideId,
+      payload: { driverId },
+      idempotencyKey: `ride-started:${rideId}`,
+    });
+
+    return updated;
+  }
+
   public async complete(rideId: string, driverId: string, finalValueCentavos?: number): Promise<Ride> {
     const ride = await this.requireRide(rideId);
     if (ride.driverId !== driverId) {
